@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/documize/community/core/env"
 	"github.com/documize/community/core/event"
@@ -39,6 +40,10 @@ import (
 	"github.com/documize/community/model/audit"
 	"github.com/documize/community/model/group"
 	"github.com/documize/community/model/user"
+	"github.com/documize/community/model/space"
+	"github.com/documize/community/model/permission"
+	
+	wf "github.com/documize/community/model/workflow"
 )
 
 // Handler contains the runtime information such as logging and database.
@@ -147,6 +152,47 @@ func (h *Handler) Add(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h.Runtime.Log.Info("Adding user")
+				
+		var sp space.Space
+		sp.Name = "マイスペース"
+		sp.Icon = ""
+		sp.LabelID = ""
+		sp.RefID = uniqueid.Generate()
+		sp.OrgID = ctx.OrgID
+		sp.UserID = userID
+		sp.Type = space.ScopePrivate
+		sp.Lifecycle = wf.LifecycleLive
+		sp.UserID = ctx.UserID
+		sp.Created = time.Now().UTC()
+		sp.Revised = time.Now().UTC()
+
+		err = h.Store.Space.Add(ctx, sp)
+		if err != nil {
+			ctx.Transaction.Rollback()
+			response.WriteServerError(w, method, err)
+			h.Runtime.Log.Error(method, err)
+			return
+		}
+		
+		perm := permission.Permission{}
+		perm.OrgID = sp.OrgID
+		perm.Who = permission.UserPermission
+		perm.WhoID = userID
+		perm.Scope = permission.ScopeRow
+		perm.Location = permission.LocationSpace
+		perm.RefID = sp.RefID
+		perm.Action = "" // we send array for actions below
+
+		err = h.Store.Permission.AddPermissions(ctx, perm, permission.SpaceOwner, permission.SpaceManage, permission.SpaceView,
+			permission.DocumentAdd, permission.DocumentCopy, permission.DocumentDelete, permission.DocumentEdit, permission.DocumentMove,
+			permission.DocumentTemplate, permission.DocumentApprove, permission.DocumentVersion, permission.DocumentLifecycle)
+		if err != nil {
+			ctx.Transaction.Rollback()
+			response.WriteServerError(w, method, err)
+			h.Runtime.Log.Error(method, err)
+			return
+		}
+
 	} else {
 		AttachUserAccounts(ctx, *h.Store, ctx.OrgID, &userDupe)
 
