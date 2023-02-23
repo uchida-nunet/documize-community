@@ -29,6 +29,32 @@
 			onPageSequenceChange=(action onPageSequenceChange)
 			onShowSectionWizard=(action "onShowSectionWizard")}}
 	{{/each}}
+<script>
+        function openBase64Image(base64URL){
+                const base64ImageData = base64URL;
+                const contentType = base64ImageData.substring(base64ImageData.indexOf(":")+1, base64ImageData.indexOf(";"));
+                const byteCharacters = atob(base64ImageData.substr(`data:${contentType};base64,`.length));
+                const byteArrays = [];
+                for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
+                        const slice = byteCharacters.slice(offset, offset + 1024);
+                        const byteNumbers = new Array(slice.length);
+                        for (let i = 0; i < slice.length; i++) {
+                                byteNumbers[i] = slice.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        byteArrays.push(byteArray);
+                }
+                const blob = new Blob(byteArrays, {type: contentType});
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+        }
+        $(".ember-view img").click(function() {
+            var src = $(this).attr("src");
+            openBase64Image(src);
+        });
+        $('.ember-view img').css('cursor', 'pointer');
+        $('.ember-view img').css('max-width', '100%');
+</script>
 {{/if}}
 
 {{#if canEdit}}
